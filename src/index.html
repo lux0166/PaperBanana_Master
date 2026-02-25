@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperBanana</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top bar */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            background: #1a1a2e;
+            border-bottom: 1px solid #2a2a4a;
+            height: 48px;
+            flex-shrink: 0;
+            -webkit-app-region: drag;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .top-bar-left h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f0c040;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-indicator.running { background: #4caf50; }
+        .status-indicator.stopped { background: #f44336; }
+        .status-indicator.loading { background: #ff9800; animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-text {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-start:hover { background: #45a049; }
+
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-stop:hover { background: #d32f2f; }
+
+        .btn-install {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-install:hover { background: #1976d2; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Main content area */
+        .content-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Streamlit iframe */
+        #streamlit-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        /* Welcome / Loading screen */
+        .splash-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 24px;
+        }
+
+        .splash-screen .logo {
+            font-size: 64px;
+        }
+
+        .splash-screen h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #f0c040;
+        }
+
+        .splash-screen p {
+            font-size: 14px;
+            color: #888;
+            max-width: 480px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .splash-screen .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .splash-screen .btn {
+            padding: 10px 24px;
+            font-size: 14px;
+        }
+
+        .log-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #111;
+            border-top: 1px solid #333;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 11px;
+            padding: 8px 12px;
+            display: none;
+            z-index: 100;
+        }
+
+        .log-panel.visible { display: block; }
+
+        .log-entry {
+            padding: 2px 0;
+            color: #888;
+        }
+
+        .log-entry.info { color: #4caf50; }
+        .log-entry.error { color: #f44336; }
+        .log-entry.warn { color: #ff9800; }
+
+        /* Prereq check */
+        .prereq-list {
+            list-style: none;
+            text-align: left;
+            width: 320px;
+        }
+
+        .prereq-list li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .prereq-list .check { color: #4caf50; }
+        .prereq-list .cross { color: #f44336; }
+        .prereq-list .spinner { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <h1>PaperBanana</h1>
+        </div>
+        <div class="top-bar-right">
+            <span class="status-indicator stopped" id="status-dot"></span>
+            <span class="status-text" id="status-text">Stopped</span>
+            <button class="btn btn-start" id="btn-start" onclick="startBackend()">Start</button>
+            <button class="btn btn-stop" id="btn-stop" onclick="stopBackend()" style="display:none;">Stop</button>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="splash-screen" id="splash">
+            <div class="logo">&#x1F34C;</div>
+            <h2>PaperBanana</h2>
+            <p>Automated Academic Illustration Generation.<br>
+               Click <strong>Start</strong> to launch the Streamlit backend, or check prerequisites first.</p>
+
+            <ul class="prereq-list" id="prereq-list">
+                <li id="prereq-python">
+                    <span class="spinner">&#8987;</span>
+                    <span>Python 3.12+</span>
+                </li>
+                <li id="prereq-deps">
+                    <span class="spinner">&#8987;</span>
+                    <span>Python dependencies</span>
+                </li>
+                <li id="prereq-config">
+                    <span class="spinner">&#8987;</span>
+                    <span>API configuration (configs/model_config.yaml)</span>
+                </li>
+            </ul>
+
+            <div class="actions">
+                <button class="btn btn-install" onclick="installDeps()">Install Dependencies</button>
+                <button class="btn btn-start" onclick="startBackend()">Launch App</button>
+            </div>
+        </div>
+
+        <iframe id="streamlit-frame" src="about:blank"></iframe>
+    </div>
+
+    <div class="log-panel" id="log-panel">
+        <div id="log-content"></div>
+    </div>
+
+    <script>
+        // Tauri API imports
+        const { invoke } = window.__TAURI__.core;
+
+        let backendRunning = false;
+        let healthCheckInterval = null;
+
+        function log(message, level = 'info') {
+            const panel = document.getElementById('log-content');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${level}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            panel.appendChild(entry);
+            panel.parentElement.scrollTop = panel.parentElement.scrollHeight;
+            document.getElementById('log-panel').classList.add('visible');
+        }
+
+        function setStatus(status, text) {
+            const dot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            dot.className = `status-indicator ${status}`;
+            statusText.textContent = text;
+        }
+
+        async function checkPrerequisites() {
+            // Check Python
+            try {
+                const hasPython = await invoke('check_python_installed');
+                const pyEl = document.getElementById('prereq-python');
+                if (hasPython) {
+                    pyEl.innerHTML = '<span class="check">&#10003;</span><span>Python installed</span>';
+                } else {
+                    pyEl.innerHTML = '<span class="cross">&#10007;</span><span>Python not found - please install Python 3.12+</span>';
+                }
+            } catch (e) {
+                const pyEl = document.getElementById('prereq-python');
+                pyEl.innerHTML = '<span class="cross">&#10007;</span><span>Could not check Python</span>';
+            }
+
+            // Mark deps and config as needing manual check
+            document.getElementById('prereq-deps').innerHTML =
+                '<span class="spinner">?</span><span>Click "Install Dependencies" to set up</span>';
+            document.getElementById('prereq-config').innerHTML =
+                '<span class="spinner">?</span><span>Ensure configs/model_config.yaml exists</span>';
+        }
+
+        async function installDeps() {
+            log('Installing Python dependencies...');
+            setStatus('loading', 'Installing...');
+            try {
+                const result = await invoke('install_dependencies');
+                log(result, 'info');
+                document.getElementById('prereq-deps').innerHTML =
+                    '<span class="check">&#10003;</span><span>Dependencies installed</span>';
+                setStatus('stopped', 'Ready');
+            } catch (e) {
+                log(`Failed: ${e}`, 'error');
+                document.getElementById('prereq-deps').innerHTML =
+                    '<span class="cross">&#10007;</span><span>Installation failed - check logs</span>';
+                setStatus('stopped', 'Error');
+            }
+        }
+
+        async function startBackend() {
+            if (backendRunning) return;
+
+            log('Starting Streamlit backend...');
+            setStatus('loading', 'Starting...');
+
+            document.getElementById('btn-start').style.display = 'none';
+            document.getElementById('btn-stop').style.display = 'inline-block';
+            document.getElementById('btn-stop').disabled = true;
+
+            try {
+                const result = await invoke('start_python_backend');
+                log(result, 'info');
+                backendRunning = true;
+
+                // Wait for Streamlit to be ready, then show iframe
+                log('Waiting for Streamlit to be ready...');
+                let attempts = 0;
+                healthCheckInterval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const response = await fetch('http://127.0.0.1:8501/_stcore/health');
+                        if (response.ok) {
+                            clearInterval(healthCheckInterval);
+                            log('Streamlit is ready!', 'info');
+                            setStatus('running', 'Running');
+
+                            // Show iframe
+                            document.getElementById('splash').style.display = 'none';
+                            const frame = document.getElementById('streamlit-frame');
+                            frame.src = 'http://127.0.0.1:8501';
+                            frame.style.display = 'block';
+                            document.getElementById('btn-stop').disabled = false;
+                            document.getElementById('log-panel').classList.remove('visible');
+                        }
+                    } catch (e) {
+                        if (attempts > 60) {
+                            clearInterval(healthCheckInterval);
+                            log('Timed out waiting for Streamlit', 'error');
+                            setStatus('stopped', 'Timeout');
+                            await stopBackend();
+                        }
+                    }
+                }, 1000);
+            } catch (e) {
+                log(`Failed to start: ${e}`, 'error');
+                setStatus('stopped', 'Error');
+                document.getElementById('btn-start').style.display = 'inline-block';
+                document.getElementById('btn-stop').style.display = 'none';
+            }
+        }
+
+        async function stopBackend() {
+            if (!backendRunning && !healthCheckInterval) return;
+
+            if (healthCheckInterval) {
+                clearInterval(healthCheckInterval);
+                healthCheckInterval = null;
+            }
+
+            log('Stopping backend...');
+            try {
+                const result = await invoke('stop_python_backend');
+                log(result, 'info');
+            } catch (e) {
+                log(`Error stopping: ${e}`, 'error');
+            }
+
+            backendRunning = false;
+            setStatus('stopped', 'Stopped');
+            document.getElementById('btn-start').style.display = 'inline-block';
+            document.getElementById('btn-stop').style.display = 'none';
+
+            // Show splash again
+            document.getElementById('splash').style.display = 'flex';
+            document.getElementById('streamlit-frame').style.display = 'none';
+            document.getElementById('streamlit-frame').src = 'about:blank';
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            checkPrerequisites();
+        });
+    </script>
+</body>
+</html>

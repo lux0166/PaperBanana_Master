@@ -6,3 +6,8 @@ __pycache__/
 .venv/
 data/
 results/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+node_modules/

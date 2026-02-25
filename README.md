@@ -68,8 +68,38 @@ First download [PaperBananaBench](https://huggingface.co/datasets/dwzhu/PaperBan
 
 ### Launch PaperBanana
 
+#### Windows Desktop App (Tauri v2)
+PaperBanana can run as a native Windows desktop application using Tauri v2, which bundles the Streamlit backend and provides a native window experience.
+
+**Prerequisites for building:**
+- [Rust](https://rustup.rs/) (latest stable)
+- Python 3.12+
+- Tauri CLI v2: `cargo install tauri-cli --version "^2.0" --locked`
+
+**Build using the PowerShell script:**
+```powershell
+.\scripts\build-windows.ps1
+```
+
+**Or build manually:**
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Build the Tauri app (produces NSIS and MSI installers)
+cargo tauri build
+```
+
+The built installers will be in `src-tauri/target/release/bundle/nsis/` and `src-tauri/target/release/bundle/msi/`.
+
+**Running the desktop app:**
+1. Install the app using the generated installer (`.exe` or `.msi`)
+2. Launch PaperBanana from the Start Menu
+3. Click "Start" in the top bar to launch the Streamlit backend
+4. The app will automatically connect to the backend once it's ready
+
 #### Interactive Demo (Streamlit)
-The easiest way to launch PaperBanana is via the interactive Streamlit demo:
+You can also launch PaperBanana directly via the interactive Streamlit demo:
 ```bash
 streamlit run demo.py
 ```
