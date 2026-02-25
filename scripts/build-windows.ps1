@@ -9,7 +9,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Navigate to project root (parent of scripts/)
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+Push-Location $ProjectRoot
 Write-Host "=== PaperBanana Windows Build ===" -ForegroundColor Yellow
+Write-Host "Project root: $ProjectRoot" -ForegroundColor Gray
 
 # Check prerequisites
 Write-Host "`n[1/5] Checking prerequisites..." -ForegroundColor Cyan
@@ -89,3 +93,4 @@ if (Test-Path "$bundleDir\msi") {
 }
 
 Write-Host "`nDone!" -ForegroundColor Yellow
+Pop-Location

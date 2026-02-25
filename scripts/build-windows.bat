@@ -2,7 +2,10 @@
 REM PaperBanana - Windows Build Script (CMD)
 REM This script builds the Tauri v2 app for Windows
 
+REM Navigate to project root (parent of scripts/)
+cd /d "%~dp0.."
 echo === PaperBanana Windows Build ===
+echo Project root: %cd%
 
 echo.
 echo [1/4] Checking prerequisites...
